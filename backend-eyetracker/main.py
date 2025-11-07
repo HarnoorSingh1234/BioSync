@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
 from api.process_audio import router as audio_router
+from api.chat_responses import router as chat_router
 
 
 # Setup logging
@@ -23,6 +24,7 @@ app.add_middleware(
 )
 
 app.include_router(audio_router, prefix="", tags=["audio"])
+app.include_router(chat_router, prefix="", tags=["chat"])
 
 @app.get("/")
 async def health():

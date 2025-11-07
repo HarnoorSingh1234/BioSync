@@ -1,43 +1,17 @@
-import os
 import logging
 from io import BytesIO
-from pathlib import Path
 from typing import List
 
-from dotenv import load_dotenv, find_dotenv
 from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import JSONResponse
+
+from .groq_utils import get_groq_api_keys
 from groq import Groq
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-def _load_api_keys() -> List[str]:
-    env_path = Path(__file__).with_name(".env")
-    if env_path.exists():
-        load_dotenv(dotenv_path=env_path, override=False)
-    else:
-        fallback_path = find_dotenv(usecwd=True)
-        if fallback_path:
-            load_dotenv(dotenv_path=fallback_path, override=False)
-        else:
-            logger.debug(".env file not found next to process_audio.py or in parent directories; relying on environment.")
-    raw_keys = [
-        os.getenv("GROQ_API_KEY"),
-        os.getenv("GROQ_API_KEY_ALT_1"),
-        os.getenv("GROQ_API_KEY_ALT_2"),
-        os.getenv("GROQ_API_KEY_ALT_3"),
-        os.getenv("GROQ_API_KEY_ALT_4"),
-    ]
-    keys = [key for key in raw_keys if key]
-    if not keys:
-        logger.error("No Groq API keys found. Check the .env file or environment variables.")
-    return keys
-
-
-GROQ_API_KEYS = _load_api_keys()
+GROQ_API_KEYS = get_groq_api_keys()
 
 async def transcribe_audio(audio_file: UploadFile) -> str:
     audio_buffer = BytesIO(await audio_file.read())
