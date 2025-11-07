@@ -68,6 +68,58 @@ export default function ConnectPage() {
 
 		const messageSuccessClasses = ["bg-emerald-500/20", "border-emerald-500/30", "text-emerald-200"];
 		const messageErrorClasses = ["bg-red-500/20", "border-red-500/25", "text-red-200"];
+		const BACKEND_URL_STORAGE_KEY = "eye-tracker-backend-url";
+		const CALIBRATION_STORAGE_KEY = "eye-tracker-calibration";
+		const OVERLAY_ENABLED_KEY = "eye-tracker-overlay-enabled";
+		const OVERLAY_EVENT_NAME = "eye-tracking-overlay-update";
+
+		const dispatchOverlayUpdate = () => {
+			try {
+				window.dispatchEvent(new CustomEvent(OVERLAY_EVENT_NAME));
+			} catch (error) {
+				console.warn("Overlay event dispatch", error);
+			}
+		};
+
+		const persistBackendUrl = (url: string) => {
+			try {
+				localStorage.setItem(BACKEND_URL_STORAGE_KEY, url);
+				dispatchOverlayUpdate();
+			} catch (error) {
+				console.warn("Persist backend URL", error);
+			}
+		};
+
+		const persistCalibration = (calibration: { width: number; height: number } | null) => {
+			if (!calibration) {
+				return;
+			}
+			try {
+				localStorage.setItem(CALIBRATION_STORAGE_KEY, JSON.stringify(calibration));
+				dispatchOverlayUpdate();
+			} catch (error) {
+				console.warn("Persist calibration", error);
+			}
+		};
+
+		const disableGlobalOverlay = () => {
+			try {
+				localStorage.removeItem(OVERLAY_ENABLED_KEY);
+				dispatchOverlayUpdate();
+			} catch (error) {
+				console.warn("Disable overlay", error);
+			}
+		};
+
+		const getSiteOverlayButton = () =>
+			document.getElementById("display-site-overlay") as HTMLButtonElement | null;
+
+		const setSiteOverlayDisabled = (disabled: boolean) => {
+			const button = getSiteOverlayButton();
+			if (button) {
+				button.disabled = disabled;
+			}
+		};
 
 		function updateTrackingButton() {
 			const button = state.showTrackingButton;
@@ -175,6 +227,7 @@ export default function ConnectPage() {
 			});
 			if (stepName === "source") {
 				closePreviewSocket();
+				disableGlobalOverlay();
 			} else {
 				ensurePreviewSocket();
 			}
@@ -755,8 +808,10 @@ export default function ConnectPage() {
 			renderDisplay(performance.now());
 			if (mode === "tracking") {
 				startGazePolling();
+				setSiteOverlayDisabled(false);
 			} else {
 				stopGazePolling();
+				setSiteOverlayDisabled(true);
 			}
 		}
 
@@ -769,6 +824,7 @@ export default function ConnectPage() {
 				layer.classList.remove("flex");
 				layer.classList.add("hidden");
 			}
+			setSiteOverlayDisabled(true);
 			if (document.fullscreenElement) {
 				document.exitFullscreen?.();
 			}
@@ -835,6 +891,7 @@ export default function ConnectPage() {
 			secondary.disabled = false;
 			tertiary.disabled = false;
 			document.getElementById("display-instructions")!.textContent = `Point 1 / ${state.calibrationPoints.length}`;
+			setSiteOverlayDisabled(true);
 		}
 
 		function setDisplayButtonsForFinalize() {
@@ -850,6 +907,7 @@ export default function ConnectPage() {
 			primary.disabled = false;
 			secondary.disabled = false;
 			tertiary.disabled = false;
+			setSiteOverlayDisabled(true);
 		}
 
 		async function finalizeCalibration() {
@@ -864,6 +922,7 @@ export default function ConnectPage() {
 						screen_height: state.calibrationScreen.height,
 					}),
 				});
+				persistCalibration(state.calibrationScreen);
 				leaveDisplayMode();
 				setStep("params");
 				state.trackingAvailable = true;
@@ -889,6 +948,23 @@ export default function ConnectPage() {
 			tertiary.disabled = false;
 			document.getElementById("display-instructions")!.textContent = "Live gaze tracking";
 			lockDisplayActions(600);
+			setSiteOverlayDisabled(false);
+		}
+
+		function prepareSiteOverlayNavigation() {
+			try {
+				persistBackendUrl(state.backendUrl);
+				persistCalibration(state.calibrationScreen);
+				localStorage.setItem(OVERLAY_ENABLED_KEY, "true");
+				dispatchOverlayUpdate();
+				setMessage("Site overlay enabled. Navigate with gaze tracking.", true);
+				leaveDisplayMode();
+				window.setTimeout(() => {
+					window.location.assign("/");
+				}, 160);
+			} catch (error: any) {
+				setMessage(`Unable to enable site overlay: ${error.message || error}`, false);
+			}
 		}
 
 		function startGazePolling() {
@@ -999,6 +1075,7 @@ export default function ConnectPage() {
 			const backendInput = document.getElementById("backend-url") as HTMLInputElement | null;
 			const usbInput = document.getElementById("usb-index") as HTMLInputElement | null;
 			state.backendUrl = backendInput?.value.trim() || state.backendUrl;
+			persistBackendUrl(state.backendUrl);
 			const source = String(usbInput?.value.trim() || "0");
 			await startSource(source);
 		}
@@ -1007,6 +1084,7 @@ export default function ConnectPage() {
 			const backendInput = document.getElementById("backend-url") as HTMLInputElement | null;
 			const sourceInput = document.getElementById("stream-url") as HTMLInputElement | null;
 			state.backendUrl = backendInput?.value.trim() || state.backendUrl;
+			persistBackendUrl(state.backendUrl);
 			const source = sourceInput?.value.trim();
 			if (!source) {
 				setMessage("Enter a stream URL");
@@ -1016,6 +1094,9 @@ export default function ConnectPage() {
 		}
 
 		async function refreshBackendStatus(autoNavigate = false) {
+			const backendInput = document.getElementById("backend-url") as HTMLInputElement | null;
+			state.backendUrl = backendInput?.value.trim() || state.backendUrl;
+			persistBackendUrl(state.backendUrl);
 			try {
 				const status = await fetchJSON("/api/status");
 				const running = Boolean(status.running);
@@ -1348,6 +1429,21 @@ export default function ConnectPage() {
 				cleanupFns.push(() => displayTertiary.removeEventListener("click", handler));
 			}
 
+			const displayHome = document.getElementById("display-site-overlay");
+			if (displayHome) {
+				const handler = () => {
+					runDisplayAction(async () => {
+						if (state.displayMode !== "tracking") {
+							setMessage("Complete calibration to use the site overlay.");
+							return;
+						}
+						prepareSiteOverlayNavigation();
+					});
+				};
+				displayHome.addEventListener("click", handler);
+				cleanupFns.push(() => displayHome.removeEventListener("click", handler));
+			}
+
 			const resizeHandler = () => {
 				resizeDisplayCanvas();
 			};
@@ -1374,6 +1470,18 @@ export default function ConnectPage() {
 		}
 
 		function init() {
+			try {
+				const savedBackend = localStorage.getItem(BACKEND_URL_STORAGE_KEY);
+				if (savedBackend) {
+					state.backendUrl = savedBackend;
+					const backendInput = document.getElementById("backend-url") as HTMLInputElement | null;
+					if (backendInput) {
+						backendInput.value = savedBackend;
+					}
+				}
+			} catch (error) {
+				console.warn("Restore backend URL", error);
+			}
 			initCanvases();
 			addEventListeners();
 			initParameterControls();
@@ -1693,6 +1801,9 @@ export default function ConnectPage() {
 							</button>
 							<button id="display-tertiary" className={buttonGhost}>
 								Abort
+							</button>
+							<button id="display-site-overlay" className={buttonSecondary} disabled>
+								Open Dashboard
 							</button>
 						</div>
 					</div>

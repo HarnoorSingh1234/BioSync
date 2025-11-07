@@ -62,6 +62,7 @@ export default function HomePage() {
 						<div
 							key={item.id}
 							onClick={() => handleCardClick(item.path)}
+							data-gaze-activate={item.path ? "card" : undefined}
 							className={`relative flex flex-col items-center justify-center border border-gray-200 dark:border-gray-800 group ${
 								item.path ? "cursor-pointer" : "cursor-default"
 							}`}

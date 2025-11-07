@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SocketProvider } from "./socket-provider";
 import OnboardingCheck from "./onboarding-check";
 import { useState } from "react";
+import GazeOverlay from "./gaze-overlay";
 
 export default function Providers({ 
 	children,
@@ -40,6 +41,7 @@ export default function Providers({
 					) : (
 						children
 					)}
+					<GazeOverlay />
 					<Toaster richColors />
 				</SocketProvider>
 			</ThemeProvider>
