@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const DEFAULT_API_URL = "http://localhost:3000";
-const DEFAULT_TRANSCRIBE_URL = "http://localhost:8000";
+const DEFAULT_TRANSCRIBE_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "http://localhost:8000";
 
 export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL,

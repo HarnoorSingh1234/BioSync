@@ -14,8 +14,8 @@ interface PinState {
 	d7: boolean;
 }
 
-const APPLIANCE_API_URL = "http://localhost:8000/api/appliances/control";
-const APPLIANCE_PASSWORD = "appliances123";
+const APPLIANCE_API_URL = `${process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "http://localhost:8000"}/api/appliances/control`;
+const APPLIANCE_PASSWORD = process.env.NEXT_PUBLIC_APPLIANCE_PASSWORD || "appliances123";
 
 export default function AppliancesPage() {
 	const router = useRouter();

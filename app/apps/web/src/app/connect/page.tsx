@@ -19,7 +19,7 @@ export default function ConnectPage() {
 
 	useEffect(() => {
 		const state = {
-			backendUrl: "http://localhost:8000",
+			backendUrl: process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "http://localhost:8000",
 			currentStep: "source",
 			ws: null as Nullable<WebSocket>,
 			previewCanvas: null as Nullable<HTMLCanvasElement>,
@@ -1575,7 +1575,7 @@ export default function ConnectPage() {
 								<input
 									type="text"
 									id="backend-url"
-									defaultValue="http://localhost:8000"  
+									defaultValue={process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "http://localhost:8000"}  
 									className={inputClasses}
 								/>
 							</div>
